@@ -149,6 +149,16 @@ namespace Mls203.Control.Core
 
         public Task EnableAxisAsync(bool xAxis)
         {
+            return SetAxisEnableStateAsync(xAxis, EnableState.Enabled);
+        }
+
+        public Task DisableAxisAsync(bool xAxis)
+        {
+            return SetAxisEnableStateAsync(xAxis, EnableState.Disabled);
+        }
+
+        private Task SetAxisEnableStateAsync(bool xAxis, EnableState enableState)
+        {
             EnsureConnected();
             return Task.Run(() =>
             {
@@ -156,7 +166,7 @@ namespace Mls203.Control.Core
                 {
                     EnsureConnected();
                     UmcxBrushlessLogicalChannel channel = xAxis ? _x : _y;
-                    channel.SetEnableState(EnableState.Enabled, TimeSpan.FromSeconds(2));
+                    channel.SetEnableState(enableState, TimeSpan.FromSeconds(2));
                 }
             });
         }

@@ -142,24 +142,29 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"
+                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" VerticalAlignment="Center"
                                FontWeight="SemiBold" Text="POWER STATUS LED"/>
-                    <Ellipse x:Name="PowerStatusLed" Grid.Row="0" Grid.Column="1" Width="18" Height="18" Margin="6"
+                    <Ellipse x:Name="PowerStatusLed" Grid.Row="0" Grid.Column="2" Width="18" Height="18" Margin="6"
                              VerticalAlignment="Center" Fill="Gray" Stroke="DarkGray" StrokeThickness="1"
                              ToolTip="Power status unavailable"/>
                     <Button x:Name="HomeButton" Grid.Row="1" Grid.Column="0" Content="Home X + Y"
                             IsEnabled="False" Click="HomeButton_Click"/>
                     <Button x:Name="EnableXButton" Grid.Row="2" Grid.Column="0" Content="Enable X"
                             IsEnabled="False" Click="EnableAxisButton_Click" Tag="X"/>
-                    <Ellipse x:Name="XEnableLed" Grid.Row="2" Grid.Column="1" Width="18" Height="18" Margin="6"
+                    <Button x:Name="DisableXButton" Grid.Row="2" Grid.Column="1" Content="Disable X"
+                            IsEnabled="False" Click="DisableAxisButton_Click" Tag="X"/>
+                    <Ellipse x:Name="XEnableLed" Grid.Row="2" Grid.Column="2" Width="18" Height="18" Margin="6"
                              VerticalAlignment="Center" Fill="Gray" Stroke="DarkGray" StrokeThickness="1"
-                             ToolTip="X axis disabled"/>
+                             ToolTip="X axis status unavailable"/>
                     <Button x:Name="EnableYButton" Grid.Row="3" Grid.Column="0" Content="Enable Y"
                             IsEnabled="False" Click="EnableAxisButton_Click" Tag="Y"/>
-                    <Ellipse x:Name="YEnableLed" Grid.Row="3" Grid.Column="1" Width="18" Height="18" Margin="6"
+                    <Button x:Name="DisableYButton" Grid.Row="3" Grid.Column="1" Content="Disable Y"
+                            IsEnabled="False" Click="DisableAxisButton_Click" Tag="Y"/>
+                    <Ellipse x:Name="YEnableLed" Grid.Row="3" Grid.Column="2" Width="18" Height="18" Margin="6"
                              VerticalAlignment="Center" Fill="Gray" Stroke="DarkGray" StrokeThickness="1"
-                             ToolTip="Y axis disabled"/>
+                             ToolTip="Y axis status unavailable"/>
                     <Button x:Name="StopButton" Grid.Row="1" Grid.Column="1" Content="STOP"
                             Background="#FFC62828" Foreground="White"
                             FontWeight="Bold" IsEnabled="False" Click="StopButton_Click"/>

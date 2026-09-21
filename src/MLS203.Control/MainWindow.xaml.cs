@@ -244,6 +244,18 @@ namespace Mls203.Control
             });
         }
 
+        private async void DisableAxisButton_Click(object sender, RoutedEventArgs e)
+        {
+            bool xAxis = string.Equals(Convert.ToString(((Button)sender).Tag), "X", StringComparison.Ordinal);
+            string axisName = xAxis ? "X" : "Y";
+            await RunBusyAsync("Disabling axis " + axisName + "...", async () =>
+            {
+                await _controller.DisableAxisAsync(xAxis);
+                await RefreshPositionAsync();
+                SetStatus("Axis " + axisName + " disabled.");
+            });
+        }
+
         private void ResetStatusIndicators()
         {
             PowerStatusLed.Fill = Brushes.Gray;
@@ -385,13 +397,27 @@ namespace Mls203.Control
             bool initializing = HasAny(status.XStatusBits, UniversalStatusBits.Initializing)
                                 || HasAny(status.YStatusBits, UniversalStatusBits.Initializing);
             bool connected = HasAny(status.XStatusBits, UniversalStatusBits.Connected)
-                             || HasAny(status.YStatusBits, UniversalStatusBits.Connected);
-            PowerStatusLed.Fill = hasError
-                ? Brushes.Red
-                : powerOk ? Brushes.Green : Brushes.Blue;
-            PowerStatusLed.ToolTip = hasError ? "Power status: error"
-                : powerOk ? "Power status: normal"
-                : initializing || connected ? "Power status: starting" : "Power status: not ready";
+                             && HasAny(status.YStatusBits, UniversalStatusBits.Connected);
+            if (!connected)
+            {
+                PowerStatusLed.Fill = Brushes.Gray;
+                PowerStatusLed.ToolTip = "Power status unavailable";
+            }
+            else if (hasError)
+            {
+                PowerStatusLed.Fill = Brushes.Red;
+                PowerStatusLed.ToolTip = "Power status: error";
+            }
+            else if (powerOk)
+            {
+                PowerStatusLed.Fill = Brushes.Green;
+                PowerStatusLed.ToolTip = "Power status: normal";
+            }
+            else
+            {
+                PowerStatusLed.Fill = Brushes.Blue;
+                PowerStatusLed.ToolTip = initializing ? "Power status: starting" : "Power status: not ready";
+            }
         }
 
         private void SetAxisStatusIndicator(
@@ -401,7 +427,12 @@ namespace Mls203.Control
             short velocity)
         {
             string state;
-            if (HasAny(bits, AxisErrorMask))
+            if (!HasAny(bits, UniversalStatusBits.Connected))
+            {
+                indicator.Fill = Brushes.Gray;
+                state = "status unavailable";
+            }
+            else if (HasAny(bits, AxisErrorMask))
             {
                 indicator.Fill = Brushes.Red;
                 state = "error";
@@ -411,8 +442,7 @@ namespace Mls203.Control
                 indicator.Fill = _ledBlinkPhase ? Brushes.Blue : Brushes.LightGray;
                 state = "initializing (blinking blue)";
             }
-            else if (!HasAny(bits, UniversalStatusBits.Connected)
-                     && !HasAny(bits, UniversalStatusBits.PowerOk))
+            else if (!HasAny(bits, UniversalStatusBits.PowerOk))
             {
                 indicator.Fill = Brushes.Purple;
                 state = "powering down";
@@ -535,6 +565,8 @@ namespace Mls203.Control
             HomeButton.IsEnabled = connected && !_busy;
             EnableXButton.IsEnabled = connected && !_busy;
             EnableYButton.IsEnabled = connected && !_busy;
+            DisableXButton.IsEnabled = connected && !_busy;
+            DisableYButton.IsEnabled = connected && !_busy;
             StopButton.IsEnabled = connected;
             bool motionEnabled = connected && _homed && !_busy;
             MoveButton.IsEnabled = motionEnabled;
