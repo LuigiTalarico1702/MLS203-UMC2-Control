@@ -240,6 +240,28 @@ namespace Mls203.Control.Core
             });
         }
 
+        public Task VerifyConnectionAsync()
+        {
+            EnsureConnected();
+            return Task.Run(() =>
+            {
+                lock (_sync)
+                {
+                    EnsureConnected();
+                    // This is the single confirmation attempt after an XA exception.
+                    // If either channel fails, the caller treats the connection as lost.
+                    UmcStatus xStatus = _x.GetUmcStatus(TimeSpan.FromSeconds(1));
+                    UmcStatus yStatus = _y.GetUmcStatus(TimeSpan.FromSeconds(1));
+                    if ((xStatus.StatusBits & UniversalStatusBits.Connected) == 0
+                        || (yStatus.StatusBits & UniversalStatusBits.Connected) == 0)
+                    {
+                        throw new InvalidOperationException(
+                            "GetUmcStatus completed, but one or both UMC2 channels report not connected.");
+                    }
+                }
+            });
+        }
+
         public Task StopAsync()
         {
             EnsureConnected();
@@ -291,14 +313,48 @@ namespace Mls203.Control.Core
             }
         }
 
+        public IReadOnlyList<string> DisconnectAndDispose()
+        {
+            var errors = new List<string>();
+            lock (_sync)
+            {
+                IsConnected = false;
+                TryCleanup("UMC2 Disconnect", () => _baseUnit?.Disconnect(), errors);
+                TryCleanup("X channel Close", () => _x?.Close(), errors);
+                TryCleanup("Y channel Close", () => _y?.Close(), errors);
+                TryCleanup("UMC2 Close", () => _baseUnit?.Close(), errors);
+                _x = null;
+                _y = null;
+                _baseUnit = null;
+
+                if (_manager != null)
+                {
+                    if (_started)
+                        TryCleanup("XA Shutdown", () => _manager.Shutdown(), errors);
+                    _started = false;
+                    TryCleanup("XA Dispose", () => _manager.Dispose(), errors);
+                    _manager = null;
+                }
+            }
+
+            return errors;
+        }
+
+        private static void TryCleanup(string operation, Action action, ICollection<string> errors)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                errors.Add(operation + " failed: " + ex.GetBaseException().Message);
+            }
+        }
+
         public void Dispose()
         {
-            CloseDevices();
-            if (_started)
-            {
-                try { _manager.Shutdown(); } catch { }
-                _started = false;
-            }
+            DisconnectAndDispose();
         }
     }
 }

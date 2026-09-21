@@ -43,6 +43,7 @@ namespace Mls203.Control
         private bool _homed;
         private bool _busy;
         private bool _polling;
+        private bool _handlingConnectionFailure;
         private int _positionPollingFailures;
         private long _positionFeedbackCount;
         private bool _ledBlinkPhase;
@@ -297,6 +298,7 @@ namespace Mls203.Control
             }
             catch (Exception ex)
             {
+                await VerifyConnectionAfterExceptionAsync("position verification", ex);
                 ShowError("Unable to verify the current position: " + BaseExceptionMessage(ex), ex);
                 return;
             }
@@ -327,6 +329,7 @@ namespace Mls203.Control
             }
             catch (Exception ex)
             {
+                await VerifyConnectionAfterExceptionAsync("STOP command", ex);
                 ShowError("Stop command failed: " + BaseExceptionMessage(ex), ex);
             }
         }
@@ -347,13 +350,7 @@ namespace Mls203.Control
             catch (Exception ex)
             {
                 _positionPollingFailures++;
-                // Keep retrying: a single delayed XA packet must not permanently
-                // disable position feedback. Avoid flooding the Message Log.
-                if (_positionPollingFailures == 1 || _positionPollingFailures % 10 == 0)
-                {
-                    LogException(ex);
-                    SetStatus("Position feedback unavailable; retrying: " + BaseExceptionMessage(ex), "WARNING");
-                }
+                await VerifyConnectionAfterExceptionAsync("position feedback", ex);
             }
             finally
             {
@@ -476,10 +473,53 @@ namespace Mls203.Control
             }
             catch (Exception ex)
             {
+                await VerifyConnectionAfterExceptionAsync("XA command", ex);
                 ShowError(BaseExceptionMessage(ex), ex);
             }
             finally
             {
+                _busy = false;
+                UpdateControls();
+            }
+        }
+
+        private async Task VerifyConnectionAfterExceptionAsync(string context, Exception originalException)
+        {
+            if (!_controller.IsConnected || _handlingConnectionFailure)
+                return;
+
+            _handlingConnectionFailure = true;
+            _positionTimer.Stop();
+            LogMessage("WARNING", "XA exception during " + context + ": " + BaseExceptionMessage(originalException));
+            LogMessage("INFO", "Verifying the USB connection with GetUmcStatus() on both axes.");
+            try
+            {
+                await _controller.VerifyConnectionAsync();
+                LogMessage("INFO", "GetUmcStatus() succeeded; the controller connection is still present.");
+                if (_controller.IsConnected)
+                    _positionTimer.Start();
+            }
+            catch (Exception verificationException)
+            {
+                LogMessage("ERROR", "USB connection verification failed: " + BaseExceptionMessage(verificationException));
+                LogMessage("INFO", "Releasing XA resources in order: Disconnect, Close, Shutdown, Dispose.");
+                _busy = true;
+                UpdateControls();
+                IReadOnlyList<string> cleanupErrors = await Task.Run(() => _controller.DisconnectAndDispose());
+                foreach (string cleanupError in cleanupErrors)
+                    LogMessage("WARNING", cleanupError);
+
+                _homed = false;
+                ProductText.Text = string.Empty;
+                XPositionText.Text = "--";
+                YPositionText.Text = "--";
+                PositionFeedbackStatusText.Text = "Feedback: USB connection lost";
+                ResetStatusIndicators();
+                SetStatus("USB connection lost. XA resources released; run USB discovery before reconnecting.", "ERROR");
+            }
+            finally
+            {
+                _handlingConnectionFailure = false;
                 _busy = false;
                 UpdateControls();
             }
