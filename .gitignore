@@ -1,0 +1,5 @@
+.vs/
+bin/
+obj/
+src/MLS203.Control/lib/*.dll
+*.user
