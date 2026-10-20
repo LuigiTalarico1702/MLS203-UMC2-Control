@@ -2,13 +2,14 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Thorlabs MLS203 / UMC2" Height="760" Width="1180"
-        MinHeight="680" MinWidth="1020" WindowState="Maximized" Closing="Window_Closing">
-    <Grid Margin="10">
+        MinHeight="480" MinWidth="640" WindowState="Maximized" Closing="Window_Closing">
+    <Viewbox Stretch="Uniform">
+    <Grid x:Name="LayoutRoot" Width="1180" Height="740" Margin="0" Background="White">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="2*" MinHeight="100"/>
-            <RowDefinition Height="*" MinHeight="70"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="0"/>
+            <RowDefinition Height="450"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -16,9 +17,9 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="150"/>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="85"/>
                     <ColumnDefinition Width="Auto"/>
@@ -42,8 +43,8 @@
 
         <Grid Grid.Row="1" Grid.RowSpan="2" Margin="8,4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="1.4*"/>
             </Grid.ColumnDefinitions>
             <GroupBox Header="Message Log" Grid.Column="1" Margin="4,0,0,0">
                 <TextBox x:Name="MessageLogBox"
@@ -58,7 +59,7 @@
             <GroupBox x:Name="DeviceListGroup" Header="Device List" Grid.Column="0" Margin="0,0,4,0">
                 <DataGrid x:Name="DeviceGrid" AutoGenerateColumns="False"
                           IsReadOnly="True" SelectionMode="Single" SelectionChanged="DeviceGrid_SelectionChanged"
-                          HorizontalScrollBarVisibility="Disabled">
+                          HorizontalScrollBarVisibility="Auto">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Device" Binding="{Binding DeviceId}" Width="Auto"/>
                         <DataGridTextColumn Header="Part" Binding="{Binding PartNumber}" Width="Auto"/>
@@ -72,15 +73,20 @@
 
         <Grid Grid.Row="3" Margin="8,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="313"/>
+                <ColumnDefinition Width="1*"/>
                 <ColumnDefinition Width="1*"/>
                 <ColumnDefinition Width="1.25*"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0">
-                <GroupBox x:Name="ConnectionGroup" Header="Connection" Height="159">
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="205"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <GroupBox x:Name="ConnectionGroup" Header="Connection" >
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -95,15 +101,78 @@
                         <Button x:Name="ConnectButton" Grid.Column="2" Content="Connect" Click="ConnectButton_Click"/>
                         <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="Transport"/>
                         <TextBox x:Name="TransportBox" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" IsReadOnly="True"/>
-                        <TextBlock x:Name="ProductText" Grid.Row="2" Grid.ColumnSpan="3" Margin="4,2"
-                                   Foreground="#FF555555" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="ProductText" Grid.Row="3" Grid.ColumnSpan="3" Margin="4,2"
+                                   Foreground="#FF555555" FontSize="11" Height="30" TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="POWER STATUS LED"/>
+                            <Ellipse x:Name="PowerStatusLed" Width="18" Height="18" Margin="6"
+                                     Fill="Gray" Stroke="DarkGray" ToolTip="Power status unavailable"/>
+                        </StackPanel>
                     </Grid>
                 </GroupBox>
 
-            </StackPanel>
+                <GroupBox x:Name="LegendGroup" Header="LEGGENDA LED" Grid.Row="1">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="LED ASSI X / Y" FontWeight="SemiBold" Margin="0,0,0,3"/>
+                            <DockPanel>
+                                <Ellipse Fill="Gray" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Grigio: stato non disponibile / non connesso." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Red" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Rosso: errore asse." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Blue" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Blu lampeggiante: inizializzazione." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Purple" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Viola: alimentazione non pronta / spegnimento." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Orange" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Arancione: movimento o homing." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Green" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Verde: abilitato e fermo." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Blue" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Blu fisso: motore disabilitato." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <TextBlock Text="POWER STATUS LED" FontWeight="SemiBold" Margin="0,4,0,2"/>
+                            <DockPanel>
+                                <Ellipse Fill="Gray" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Grigio: connessione non disponibile." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Red" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Rosso: guasto tensione di alimentazione." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Green" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Verde: alimentazione OK su entrambi gli assi." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                            <DockPanel>
+                                <Ellipse Fill="Blue" Width="10" Height="10" Margin="0,2,6,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="Blu: inizializzazione / alimentazione non pronta." FontSize="10" TextWrapping="Wrap"/>
+                            </DockPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </GroupBox>
 
-            <StackPanel Grid.Column="1">
-                <GroupBox x:Name="PositionGroup" Header="Position" Height="159">
+            </Grid>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="205"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <GroupBox x:Name="PositionGroup" Header="Position" >
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -132,47 +201,42 @@
                                    Text="Feedback: waiting for connection"/>
                     </Grid>
                 </GroupBox>
-                <Grid HorizontalAlignment="Center">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" VerticalAlignment="Center"
-                               FontWeight="SemiBold" Text="POWER STATUS LED"/>
-                    <Ellipse x:Name="PowerStatusLed" Grid.Row="0" Grid.Column="2" Width="18" Height="18" Margin="6"
-                             VerticalAlignment="Center" Fill="Gray" Stroke="DarkGray" StrokeThickness="1"
-                             ToolTip="Power status unavailable"/>
-                    <Button x:Name="HomeButton" Grid.Row="1" Grid.Column="0" Content="Home X + Y"
-                            IsEnabled="False" Click="HomeButton_Click"/>
-                    <Button x:Name="EnableXButton" Grid.Row="2" Grid.Column="0" Content="Enable X"
-                            IsEnabled="False" Click="EnableAxisButton_Click" Tag="X"/>
-                    <Button x:Name="DisableXButton" Grid.Row="2" Grid.Column="1" Content="Disable X"
-                            IsEnabled="False" Click="DisableAxisButton_Click" Tag="X"/>
-                    <Ellipse x:Name="XEnableLed" Grid.Row="2" Grid.Column="2" Width="18" Height="18" Margin="6"
-                             VerticalAlignment="Center" Fill="Gray" Stroke="DarkGray" StrokeThickness="1"
-                             ToolTip="X axis status unavailable"/>
-                    <Button x:Name="EnableYButton" Grid.Row="3" Grid.Column="0" Content="Enable Y"
-                            IsEnabled="False" Click="EnableAxisButton_Click" Tag="Y"/>
-                    <Button x:Name="DisableYButton" Grid.Row="3" Grid.Column="1" Content="Disable Y"
-                            IsEnabled="False" Click="DisableAxisButton_Click" Tag="Y"/>
-                    <Ellipse x:Name="YEnableLed" Grid.Row="3" Grid.Column="2" Width="18" Height="18" Margin="6"
-                             VerticalAlignment="Center" Fill="Gray" Stroke="DarkGray" StrokeThickness="1"
-                             ToolTip="Y axis status unavailable"/>
-                    <Button x:Name="StopButton" Grid.Row="1" Grid.Column="1" Content="STOP"
-                            Background="#FFC62828" Foreground="White"
-                            FontWeight="Bold" IsEnabled="False" Click="StopButton_Click"/>
-                </Grid>
-            </StackPanel>
+                <GroupBox x:Name="AxisControlsGroup" Header="Axis controls" Grid.Row="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="Axis X" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <Ellipse x:Name="XEnableLed" Width="18" Height="18" Margin="6"
+                                         Fill="Gray" Stroke="DarkGray" ToolTip="X axis status unavailable"/>
+                            </StackPanel>
+                            <Button x:Name="HomeXButton" Content="Home X" Tag="X" IsEnabled="False" Click="HomeButton_Click"/>
+                            <Button x:Name="EnableXButton" Content="Enable X" Tag="X" IsEnabled="False" Click="EnableAxisButton_Click"/>
+                            <Button x:Name="DisableXButton" Content="Disable X" Tag="X" IsEnabled="False" Click="DisableAxisButton_Click"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="Axis Y" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                                <Ellipse x:Name="YEnableLed" Width="18" Height="18" Margin="6"
+                                         Fill="Gray" Stroke="DarkGray" ToolTip="Y axis status unavailable"/>
+                            </StackPanel>
+                            <Button x:Name="HomeYButton" Content="Home Y" Tag="Y" IsEnabled="False" Click="HomeButton_Click"/>
+                            <Button x:Name="EnableYButton" Content="Enable Y" Tag="Y" IsEnabled="False" Click="EnableAxisButton_Click"/>
+                            <Button x:Name="DisableYButton" Content="Disable Y" Tag="Y" IsEnabled="False" Click="DisableAxisButton_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </GroupBox>
+            </Grid>
 
-            <StackPanel Grid.Column="2">
-                <GroupBox x:Name="AbsoluteMoveGroup" Header="Absolute move" Height="159">
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="205"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <GroupBox x:Name="AbsoluteMoveGroup" Header="Absolute move" >
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -191,13 +255,14 @@
                         <TextBox x:Name="TargetYBox" Grid.Column="3" Text="0"/>
                         <Button x:Name="MoveButton" Grid.Column="4" Content="Move XY" IsEnabled="False" Click="MoveButton_Click"/>
                         <TextBlock x:Name="SoftwareLimitsTextBlock" Grid.Row="1" Grid.ColumnSpan="5"
-                                   Margin="4" Foreground="#FF555555"/>
+                                   Margin="4" Foreground="#FF555555" TextWrapping="Wrap"/>
                     </Grid>
                 </GroupBox>
 
-                <GroupBox Header="Jog (relative move)">
+                <GroupBox x:Name="JogGroup" Header="Jog (relative move)" Grid.Row="1">
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -210,16 +275,20 @@
                         <TextBlock Grid.Column="0" Grid.ColumnSpan="2" VerticalAlignment="Center" Text="Step [mm]"/>
                         <TextBox x:Name="JogStepBox" Grid.Column="2" Text="1"/>
                         <Button x:Name="YPlusButton" Grid.Row="1" Grid.Column="1" Content="Y +" IsEnabled="False" Click="JogButton_Click" Tag="Y+"/>
-                        <Button x:Name="XMinusButton" Grid.Row="2" Grid.Column="0" Content="X −" IsEnabled="False" Click="JogButton_Click" Tag="X-"/>
-                        <Button x:Name="YMinusButton" Grid.Row="2" Grid.Column="1" Content="Y −" IsEnabled="False" Click="JogButton_Click" Tag="Y-"/>
+                        <Button x:Name="XMinusButton" Grid.Row="2" Grid.Column="0" Content="X -" IsEnabled="False" Click="JogButton_Click" Tag="X-"/>
+                        <Button x:Name="YMinusButton" Grid.Row="3" Grid.Column="1" Content="Y -" IsEnabled="False" Click="JogButton_Click" Tag="Y-"/>
+                        <Button x:Name="StopButton" Grid.Row="2" Grid.Column="1" Content="STOP X+Y"
+                                Background="#FFC62828" Foreground="White" FontWeight="Bold"
+                                IsEnabled="False" Click="StopButton_Click"/>
                         <Button x:Name="XPlusButton" Grid.Row="2" Grid.Column="2" Content="X +" IsEnabled="False" Click="JogButton_Click" Tag="X+"/>
                     </Grid>
                 </GroupBox>
-            </StackPanel>
+            </Grid>
         </Grid>
 
         <Border Grid.Row="4" Margin="8" Padding="8" Background="#FFF0F2F5" CornerRadius="3">
             <TextBlock x:Name="StatusText" Text="Ready. Close the XA GUI before connecting from this application." TextWrapping="Wrap"/>
         </Border>
     </Grid>
+    </Viewbox>
 </Window>

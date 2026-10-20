@@ -36,7 +36,7 @@ this project, and both DLLs must come from the same XA installation/version.
 4. Start this application. Enter the controller IP as both **First IP** and
    **Last IP**. The default HCCP port is `40303`; use the value configured in XA.
 5. Select the UMC2 base unit (or a child channel), click **Connect**, clear the
-   complete XY travel area, and execute **Home X + Y**.
+   complete XY travel area, and execute **Home X** and **Home Y**.
 
 ## USB connection
 
@@ -50,10 +50,10 @@ this project, and both DLLs must come from the same XA installation/version.
 - XA Ethernet discovery through `TLMC_DiscoverEthernetDeviceInfo`
 - XA USB discovery through `SystemManager.GetDeviceList`
 - Opening the `Umcx` base unit and two `UmcxBrushlessLogicalChannel` channels
-- Enable, sequential X/Y homing, live position/status polling, absolute XY move,
+- Per-axis enable/disable and independent X/Y homing, live position/status polling, absolute XY move,
   relative jog
 - Immediate stop request on both axes
-- Software travel checks: X 0–110 mm and Y 0–75 mm
+- Software travel checks: X 0Ã¢â‚¬â€œ110 mm and Y 0Ã¢â‚¬â€œ75 mm
 
 ## XA API mapping
 
@@ -80,7 +80,10 @@ have exposed it as either `RelativeMove` or `Relative`.
   limits, emergency stopping and guarding remain external responsibilities.
 - Confirm channel 1 = X and channel 2 = Y. If the cabling differs, update the
   mapping in `Umc2StageController.Connect` before motion tests.
-- Absolute and jog controls stay disabled until this application completes homing.
+- Jog requires homing of its axis; absolute XY moves require homing of both axes.
+- Axis controls group Home, Enable, Disable and status LEDs by axis.
+- STOP X+Y stays available while connected, including during homing and motion,
+  at the center of the jog directional controls.
 - The current XY move starts independent channel commands concurrently; it is not
   a coordinated/interpolated path. Add XA synchronized/path movement if the process
   requires straight-line trajectories or raster scanning.
@@ -91,3 +94,28 @@ have exposed it as either `RelativeMove` or `Relative`.
 - Thorlabs XA User Guide, DOC-101911 (installed with XA)
 - [Official Thorlabs `Motion_Control_Examples`, C#/XA/UMCx](https://github.com/Thorlabs/Motion_Control_Examples/tree/main/C%23/XA/UMCx)
 - XA native API shipped with the installed XA SDK
+
+## LED diagnostics
+
+The bottom-left LED legend describes axis and power colors. Axis LEDs are driven
+by each fresh UMC status response, including during homing and moves. Red faults
+have priority over motion and enable state; hover over an axis LED for fault names
+and the raw status word. The UMC2 Interlock input bit alone is not treated as a
+fault: it was observed set on an enabled axis with Error=false. Actual error,
+commutation, current, voltage and other fault flags still take priority.
+
+The POWER indicator summarizes channel supply telemetry, not all motor faults:
+gray for unavailable connection, red for BusVoltageFault, blue while initializing
+or without PowerOk on both axes, green when both report PowerOk. Motor faults
+remain visible on the axis LEDs. This mapping uses the installed XA 1.9 API's
+separate PowerOk, BusVoltageFault and Error flags; it is not yet verified as an
+exact reproduction of the physical UMC2 front-panel LED against its user manual.
+
+The UI scales uniformly to the available window client area (including Windows
+DPI scaling). Connection reserves space for both channel names before connection;
+long names are trimmed with the full text available on hover. Device/log lists and
+the legend scroll within their sections rather than increasing window content size.
+
+Verification (no controller connection or movement):
+- `powershell -STA -File tests/Test-LedStatus.ps1`
+- `powershell -STA -File tests/Test-Layout.ps1`

@@ -40,7 +40,8 @@ namespace Mls203.Control
         private readonly ObservableCollection<DiscoveredDevice> _devices = new ObservableCollection<DiscoveredDevice>();
         private readonly Umc2StageController _controller = new Umc2StageController();
         private readonly DispatcherTimer _positionTimer;
-        private bool _homed;
+        private bool _xHomed;
+        private bool _yHomed;
         private bool _busy;
         private bool _polling;
         private bool _handlingConnectionFailure;
@@ -48,11 +49,12 @@ namespace Mls203.Control
         private long _positionFeedbackCount;
         private bool _ledBlinkPhase;
 
+        // Interlock is an input state on UMC2, not an error flag: it is set even
+        // when XA reports Error=false and the axis is enabled. Keep actual faults red.
         private static readonly UniversalStatusBits AxisErrorMask =
             UniversalStatusBits.Error |
             UniversalStatusBits.PositionError |
             UniversalStatusBits.InstrumentError |
-            UniversalStatusBits.Interlock |
             UniversalStatusBits.Overtemperature |
             UniversalStatusBits.BusVoltageFault |
             UniversalStatusBits.CommutationError |
@@ -66,15 +68,14 @@ namespace Mls203.Control
             UniversalStatusBits.MovingCounterclockwise |
             UniversalStatusBits.JoggingClockwise |
             UniversalStatusBits.JoggingCounterclockwise |
-            UniversalStatusBits.Homing |
-            UniversalStatusBits.Tracking;
+            UniversalStatusBits.Homing;
 
         public MainWindow()
         {
             InitializeComponent();
             DeviceGrid.ItemsSource = _devices;
             SoftwareLimitsTextBlock.Text =
-                "Movement requires homing to be completed\n" +
+                "Home each axis before jog; home both before Move XY\n" +
                 "Software limits X: " + FormatLimit(XMinimum) + " - " + FormatLimit(XMaximum) + " [mm]\n" +
                 "Software limits Y: " + FormatLimit(YMinimum) + " - " + FormatLimit(YMaximum) + " [mm]";
             _positionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(DefaultPositionPollingMs) };
@@ -152,7 +153,7 @@ namespace Mls203.Control
                 LogMessage("INFO", "An UMC2 connection is already active in this application; disconnecting it now.");
                 _positionTimer.Stop();
                 _controller.Disconnect();
-                _homed = false;
+                _xHomed = _yHomed = false;
                 ProductText.Text = string.Empty;
                 XPositionText.Text = "--";
                 YPositionText.Text = "--";
@@ -212,8 +213,10 @@ namespace Mls203.Control
 
         private async void HomeButton_Click(object sender, RoutedEventArgs e)
         {
+            bool xAxis = string.Equals(Convert.ToString(((Button)sender).Tag), "X", StringComparison.Ordinal);
+            string axisName = xAxis ? "X" : "Y";
             MessageBoxResult confirmation = MessageBox.Show(
-                "The stage will move both axes to their reference positions. Is the entire travel area clear?",
+                "Axis " + axisName + " will move to its reference position. Is the entire travel area clear?",
                 "Confirm homing",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
@@ -223,12 +226,15 @@ namespace Mls203.Control
                 return;
             }
 
-            await RunBusyAsync("Homing X, then Y...", async () =>
+            await RunBusyAsync("Homing " + axisName + "...", async () =>
             {
-                await _controller.HomeAsync();
-                _homed = true;
+                if (xAxis) _xHomed = false;
+                else _yHomed = false;
+                await _controller.HomeAsync(xAxis);
+                if (xAxis) _xHomed = true;
+                else _yHomed = true;
                 await RefreshPositionAsync();
-                SetStatus("Homing completed. Absolute and jog movements are enabled.");
+                SetStatus("Axis " + axisName + " homing completed.");
             });
         }
 
@@ -373,7 +379,20 @@ namespace Mls203.Control
         private async Task RefreshPositionAsync()
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
-            StageStatusSnapshot status = await _controller.ReadStatusAsync();
+            StageStatusSnapshot status;
+            try
+            {
+                status = await _controller.ReadStatusAsync();
+            }
+            catch
+            {
+                ResetStatusIndicators();
+                PositionFeedbackStatusText.Text = "Feedback: status unavailable";
+                throw;
+            }
+            // A pending read must not repaint LEDs after the user disconnects.
+            if (!_controller.IsConnected)
+                return;
             stopwatch.Stop();
             _positionFeedbackCount++;
             XPositionText.Text = status.XPositionMillimetres.ToString("F4", CultureInfo.CurrentCulture);
@@ -390,8 +409,10 @@ namespace Mls203.Control
             SetAxisStatusIndicator(XEnableLed, "X", status.XStatusBits, status.XVelocity);
             SetAxisStatusIndicator(YEnableLed, "Y", status.YStatusBits, status.YVelocity);
 
-            bool hasError = HasAny(status.XStatusBits, AxisErrorMask)
-                            || HasAny(status.YStatusBits, AxisErrorMask);
+            // Axis faults (e.g. commutation) do not mean the supply is faulty.
+            // The power indicator uses the XA power/voltage flags only.
+            bool supplyFault = HasAny(status.XStatusBits | status.YStatusBits,
+                                      UniversalStatusBits.BusVoltageFault);
             bool powerOk = HasAny(status.XStatusBits, UniversalStatusBits.PowerOk)
                            && HasAny(status.YStatusBits, UniversalStatusBits.PowerOk);
             bool initializing = HasAny(status.XStatusBits, UniversalStatusBits.Initializing)
@@ -403,15 +424,15 @@ namespace Mls203.Control
                 PowerStatusLed.Fill = Brushes.Gray;
                 PowerStatusLed.ToolTip = "Power status unavailable";
             }
-            else if (hasError)
+            else if (supplyFault)
             {
                 PowerStatusLed.Fill = Brushes.Red;
-                PowerStatusLed.ToolTip = "Power status: error";
+                PowerStatusLed.ToolTip = "Power status: bus voltage fault";
             }
-            else if (powerOk)
+            else if (powerOk && !initializing)
             {
                 PowerStatusLed.Fill = Brushes.Green;
-                PowerStatusLed.ToolTip = "Power status: normal";
+                PowerStatusLed.ToolTip = "Power status: PowerOk on both axes (axis faults shown separately)";
             }
             else
             {
@@ -445,7 +466,7 @@ namespace Mls203.Control
             else if (!HasAny(bits, UniversalStatusBits.PowerOk))
             {
                 indicator.Fill = Brushes.Purple;
-                state = "powering down";
+                state = "power not ready / powering down";
             }
             else if (velocity != 0 || HasAny(bits, AxisMovingMask))
             {
@@ -463,7 +484,11 @@ namespace Mls203.Control
                 state = "motor disabled";
             }
 
-            indicator.ToolTip = "Axis " + axis + ": " + state;
+            string faults = string.Join(", ", Enum.GetValues(typeof(UniversalStatusBits))
+                .Cast<UniversalStatusBits>().Where(flag => HasAny(flag, AxisErrorMask) && HasAny(bits, flag)));
+            indicator.ToolTip = "Axis " + axis + ": " + state
+                + (faults.Length == 0 ? string.Empty : " (" + faults + ")")
+                + "\nStatus: 0x" + ((uint)bits).ToString("X8");
         }
 
         private static bool HasAny(UniversalStatusBits value, UniversalStatusBits mask)
@@ -539,7 +564,7 @@ namespace Mls203.Control
                 foreach (string cleanupError in cleanupErrors)
                     LogMessage("WARNING", cleanupError);
 
-                _homed = false;
+                _xHomed = _yHomed = false;
                 ProductText.Text = string.Empty;
                 XPositionText.Text = "--";
                 YPositionText.Text = "--";
@@ -562,18 +587,16 @@ namespace Mls203.Control
             ScanUsbButton.IsEnabled = !_busy && !connected;
             ConnectButton.IsEnabled = !_busy;
             ConnectButton.Content = connected ? "Disconnect" : "Connect";
-            HomeButton.IsEnabled = connected && !_busy;
+            HomeXButton.IsEnabled = HomeYButton.IsEnabled = connected && !_busy;
             EnableXButton.IsEnabled = connected && !_busy;
             EnableYButton.IsEnabled = connected && !_busy;
             DisableXButton.IsEnabled = connected && !_busy;
             DisableYButton.IsEnabled = connected && !_busy;
             StopButton.IsEnabled = connected;
-            bool motionEnabled = connected && _homed && !_busy;
-            MoveButton.IsEnabled = motionEnabled;
-            XMinusButton.IsEnabled = motionEnabled;
-            XPlusButton.IsEnabled = motionEnabled;
-            YMinusButton.IsEnabled = motionEnabled;
-            YPlusButton.IsEnabled = motionEnabled;
+            bool motionEnabled = connected && !_busy;
+            MoveButton.IsEnabled = motionEnabled && _xHomed && _yHomed;
+            XMinusButton.IsEnabled = XPlusButton.IsEnabled = motionEnabled && _xHomed;
+            YMinusButton.IsEnabled = YPlusButton.IsEnabled = motionEnabled && _yHomed;
         }
 
         private bool TryReadNetworkInputs(out string firstIp, out string lastIp, out int port, out int timeoutMs)
@@ -598,7 +621,7 @@ namespace Mls203.Control
             }
             if (!valid)
             {
-                ShowError("Check the IPv4 range (first ≤ last), port (1…65535), and timeout (50…30000 ms).");
+                ShowError("Check the IPv4 range (first ÃƒÂ¢Ã¢â‚¬Â°Ã‚Â¤ last), port (1ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦65535), and timeout (50ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦30000 ms).");
             }
             return valid;
         }

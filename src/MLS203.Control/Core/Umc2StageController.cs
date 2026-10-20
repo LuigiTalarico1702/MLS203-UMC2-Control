@@ -134,16 +134,14 @@ namespace Mls203.Control.Core
                 throw new InvalidOperationException("Unable to open brushless channel " + channelId + ".");
         }
 
-        public Task HomeAsync()
+        public Task HomeAsync(bool xAxis)
         {
             EnsureConnected();
             return Task.Run(() =>
             {
-                _x.SetEnableState(EnableState.Enabled, TimeSpan.FromSeconds(2));
-                _y.SetEnableState(EnableState.Enabled, TimeSpan.FromSeconds(2));
-                // Sequential homing is intentional for conservative commissioning.
-                _x.Home(TimeSpan.FromSeconds(90));
-                _y.Home(TimeSpan.FromSeconds(90));
+                UmcxBrushlessLogicalChannel channel = xAxis ? _x : _y;
+                channel.SetEnableState(EnableState.Enabled, TimeSpan.FromSeconds(2));
+                channel.Home(TimeSpan.FromSeconds(90));
             });
         }
 
